@@ -3,44 +3,29 @@ import time
 import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import LabelEncoder
-import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
 
-# Função para re-treinar o modelo
-def retrain_model(game_data, model_filename='pong_model.pkl'):
+def retrain_model(game_data, model_filename='pong_model_rf.pkl'):
     df = pd.read_csv('game_data.csv')
 
-    # Definir X (features) e y (target)
-    X = df[['ball_x', 'ball_y', 'left_pad_y',
-             'ball_dx', 'ball_dy', 'left_pad_distance',
-             'ball_distance_to_left_pad', 'ball_direction']]
-    y = df['player_action']
+    X = df[['ball_x', 'ball_y', 'ball_dx', 'ball_dy']]
+    y = df['left_pad_y']
 
-    encoder = LabelEncoder()
-    y = encoder.fit_transform(y)
-
-    # Dividir dados em treino e teste
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-    # Treinar o modelo usando XGBoost
-    model = xgb.XGBClassifier(eval_metric='mlogloss')
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
-    # Avaliar o modelo
     y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"Acurácia do modelo: {accuracy * 100:.2f}%")
+    mse = mean_squared_error(y_test, y_pred)
+    print(f"Erro quadrático médio do modelo: {mse:.2f}")
 
-    # Salvar o modelo treinado
     joblib.dump(model, model_filename)
-    joblib.dump(encoder, 'encoder.pkl')
     print("Modelo re-treinado e salvo com sucesso!")
     return model
 
-model = joblib.load('pong_model.pkl')
-encoder = joblib.load('encoder.pkl')
+model = joblib.load('pong_model_rf.pkl')
 print("Modelo carregado com sucesso!")
 
 # Create screen
@@ -89,7 +74,7 @@ sketch.color("blue")
 sketch.penup()
 sketch.hideturtle()
 sketch.goto(0, 260)
-sketch.write("Jogador da Esquerda : 0    Jogador da Direita: 0",
+sketch.write("Jogador IA : 0    Jogador da Direita: 0",
              align="center", font=("Courier", 24, "normal"))
 
 left_player_action = "none"
@@ -97,7 +82,7 @@ left_player_action = "none"
 def paddleaup():
     global left_player_action
     y = left_pad.ycor()
-    if y < 250:  # Limit paddle movement
+    if y < 250:
         y += 20
         left_pad.sety(y)
     left_player_action = "up"
@@ -107,7 +92,7 @@ def paddleaup():
 def paddleadown():
     global left_player_action
     y = left_pad.ycor()
-    if y > -240:  # Limit paddle movement
+    if y > -240:
         y -= 20
         left_pad.sety(y)
     left_player_action = "down"
@@ -115,14 +100,14 @@ def paddleadown():
 
 def paddlebup():
     y = right_pad.ycor()
-    if y < 250:  # Limit paddle movement
+    if y < 250:
         y += 20
         right_pad.sety(y)
 
 
 def paddlebdown():
     y = right_pad.ycor()
-    if y > -240:  # Limit paddle movement
+    if y > -240:
         y -= 20
         right_pad.sety(y)
 
@@ -134,128 +119,81 @@ sc.onkeypress(paddleadown, "s")
 sc.onkeypress(paddlebup, "Up")
 sc.onkeypress(paddlebdown, "Down")
 
-# Definir o número de jogadas antes de re-treinar
 retrain_interval = 1000
 current_plays = 0
 
-# Inicializar uma lista para armazenar dados do jogo
 game_data = []
 
-# Função para registrar o estado do jogo
-def record_game_data(ball_x, ball_y, left_pad_y, right_pad_y, action, ball_dx, ball_dy):
-    left_pad_distance = ball_x + 400
-    right_pad_distance = 400 - ball_x
+def record_game_data(ball_x, ball_y, left_pad_y, ball_dx, ball_dy):
 
-    # Novas features
-    ball_distance_to_left_pad = abs(ball_x + 400 - left_pad_y)
-    ball_direction = 1 if ball_dx > 0 else -1  # 1 para direita, -1 para esquerda
-
-    if ball_distance_to_left_pad < 150:
-        game_data.append({
-            'ball_x': ball_x,
-            'ball_y': ball_y,
-            'left_pad_y': left_pad_y,
-            'player_action': action,
-            'ball_dx': ball_dx,
-            'ball_dy': ball_dy,
-            'left_pad_distance': left_pad_distance,
-            'ball_distance_to_left_pad': ball_distance_to_left_pad,
-            'ball_direction': ball_direction,
-        })
+    game_data.append({
+        'ball_x': ball_x,
+        'ball_y': ball_y,
+        'ball_dx': ball_dx,
+        'ball_dy': ball_dy,
+        'left_pad_y': left_pad_y,
+    })
 
 def save_game_data_to_csv():
     import csv
 
-    # Abra o arquivo em modo de append
     with open('game_data.csv', mode='a', newline='') as file:
-        fieldnames = ['ball_x', 'ball_y', 'left_pad_y',
-                      'player_action', 'ball_dx', 'ball_dy', 
-                      'left_pad_distance',
-                      'ball_distance_to_left_pad', 'ball_direction']
+        fieldnames = ['ball_x', 'ball_y', 'ball_dx', 'ball_dy','left_pad_y']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
 
-        # Escreva o cabeçalho apenas se o arquivo estiver vazio
         if file.tell() == 0:
             writer.writeheader()
 
-        # Escreva os dados do jogo
         for data in game_data:
             writer.writerow(data)
 
     print("Dados do jogo salvos em game_data.csv")
-  
 
-# Função para usar o modelo para prever a ação com base no estado atual do jogo
-def predict_action(ball_x, ball_y, left_pad_y, right_pad_y, ball_dx, ball_dy):
-    left_pad_distance = ball_x + 400
-    right_pad_distance = 400 - ball_x
-    ball_distance_to_left_pad = abs(ball_x + 400 - left_pad_y)
-    ball_direction = 1 if ball_dx > 0 else -1
-    future_ball_x = ball_x + ball_dx * 10
-    future_ball_y = ball_y + ball_dy * 10
-    distance_to_goal = abs(future_ball_x - 400)
-
+def predict_paddle_position(ball_x, ball_y, ball_dx, ball_dy):
     input_data = pd.DataFrame({
         'ball_x': [ball_x],
         'ball_y': [ball_y],
-        'left_pad_y': [left_pad_y],
         'ball_dx': [ball_dx],
-        'ball_dy': [ball_dy],
-        'left_pad_distance': [left_pad_distance],
-        'ball_distance_to_left_pad': [ball_distance_to_left_pad],
-        'ball_direction': [ball_direction],
+        'ball_dy': [ball_dy]
     })
-    action_pred = model.predict(input_data)[0]
-    return encoder.inverse_transform([action_pred])[0]
 
-# Main game loop
+    predicted_y = model.predict(input_data)[0]
+    return predicted_y
+
 while True:
     sc.update()
-    time.sleep(0.001)  # Add delay to make game smoother
+    time.sleep(0.001)
 
     hit_ball.setx(hit_ball.xcor() + hit_ball.dx)
     hit_ball.sety(hit_ball.ycor() + hit_ball.dy)
 
-    # Predict the action of the right player
-    ai_player_action = predict_action(
+    predicted_y = predict_paddle_position(
         hit_ball.xcor(),
         hit_ball.ycor(),
-        left_pad.ycor(),
-        right_pad.ycor(),
         hit_ball.dx,
         hit_ball.dy
     )
 
-    if ai_player_action == "up":
-        paddleaup()
-    elif ai_player_action == "down":
-        paddleadown()
+    left_pad.sety(predicted_y)
 
-    print('asd', left_player_action)
-    # if left_player_action != 'none': 
-    record_game_data(
-        hit_ball.xcor(),
-        hit_ball.ycor(),
-        left_pad.ycor(),
-        right_pad.ycor(),
-        left_player_action,  # Ação do jogador
-        hit_ball.dx,
-        hit_ball.dy
-    )
+    # record_game_data(
+    #     hit_ball.xcor(),
+    #     hit_ball.ycor(),
+    #     left_pad.ycor(),
+    #     hit_ball.dx,
+    #     hit_ball.dy
+    # )
 
-    left_player_action = "none"
 
     current_plays += 1
 
-    # Verificar se é hora de re-treinar o modelo
-    if current_plays % retrain_interval == 0:
-        print(f"Re-treinando modelo após {current_plays} jogadas...")
-        # save_game_data_to_csv()  # Salvar os dados em CSV
-        # model = retrain_model(game_data)  # Re-treinar o modelo
-        current_plays = 0  # Resetar contagem de jogadas
+    # if current_plays % retrain_interval == 0:
+    #     print(f"Retreinando modelo após {current_plays} jogadas...")
+    #     save_game_data_to_csv()
+    #     model = retrain_model(game_data)  
+    #     current_plays = 0
 
 
-    # Checking borders
     if hit_ball.ycor() > 280:
         hit_ball.sety(280)
         hit_ball.dy *= -1
@@ -269,7 +207,7 @@ while True:
         hit_ball.dy *= -1
         left_player += 1
         sketch.clear()
-        sketch.write("Jogador da Esquerda: {}    Jogador da Direita: {}".format(
+        sketch.write("Jogador IA: {}    Jogador da Direita: {}".format(
             left_player, right_player), align="center",
             font=("Courier", 24, "normal"))
 
@@ -278,15 +216,14 @@ while True:
         hit_ball.dy *= -1
         right_player += 1
         sketch.clear()
-        sketch.write("Jogador da Esquerda: {}    Jogador da Direita: {}".format(
+        sketch.write("Jogador IA: {}    Jogador da Direita: {}".format(
             left_player, right_player), align="center",
             font=("Courier", 24, "normal"))
         
 
     if left_player == max_points or right_player == max_points:
       print("Fim do jogo!")
-      # save_game_data_to_csv()  # Salvar os dados em CSV
-      break  # Sair do loop principal para encerrar o jogo
+      break
 
     # Paddle ball collision
     if (hit_ball.xcor() > 360 and hit_ball.xcor() < 370) and \

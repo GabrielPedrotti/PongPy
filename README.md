@@ -1,4 +1,4 @@
-# Welcome to PONG API 👋
+# Welcome to PONG GAME 👋
 
 # Install
 py -3 -m venv .venv
