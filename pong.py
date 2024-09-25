@@ -28,13 +28,11 @@ def retrain_model(game_data, model_filename='pong_model_rf.pkl'):
 model = joblib.load('pong_model_rf.pkl')
 print("Modelo carregado com sucesso!")
 
-# Create screen
 sc = turtle.Screen()
 sc.title("Pong game")
 sc.bgcolor("white")
 sc.setup(width=1000, height=600)
 
-# Left paddle
 left_pad = turtle.Turtle()
 left_pad.speed(0)
 left_pad.shape("square")
@@ -43,7 +41,6 @@ left_pad.shapesize(stretch_wid=6, stretch_len=2)
 left_pad.penup()
 left_pad.goto(-400, 0)
 
-# Right paddle
 right_pad = turtle.Turtle()
 right_pad.speed(0)
 right_pad.shape("square")
@@ -52,7 +49,6 @@ right_pad.shapesize(stretch_wid=6, stretch_len=2)
 right_pad.penup()
 right_pad.goto(400, 0)
 
-# Ball of circle shape
 hit_ball = turtle.Turtle()
 hit_ball.speed(4)  # Adjusted speed
 hit_ball.shape("circle")
@@ -62,12 +58,10 @@ hit_ball.goto(0, 0)
 hit_ball.dx = 5
 hit_ball.dy = -5
 
-# Initialize the score
 left_player = 0
 right_player = 0
-max_points = 50
+max_points = 8
 
-# Displays the score
 sketch = turtle.Turtle()
 sketch.speed(0)
 sketch.color("blue")
@@ -77,25 +71,20 @@ sketch.goto(0, 260)
 sketch.write("Jogador IA : 0    Jogador da Direita: 0",
              align="center", font=("Courier", 24, "normal"))
 
-left_player_action = "none"
 
 def paddleaup():
-    global left_player_action
     y = left_pad.ycor()
     if y < 250:
         y += 20
         left_pad.sety(y)
-    left_player_action = "up"
         
 
 
 def paddleadown():
-    global left_player_action
     y = left_pad.ycor()
     if y > -240:
         y -= 20
         left_pad.sety(y)
-    left_player_action = "down"
 
 
 def paddlebup():
